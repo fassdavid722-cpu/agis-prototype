@@ -1,7 +1,8 @@
-// App.jsx — AGIS Visual Translator Router v2.0
+// App.jsx — AGIS Visual Translator Router v2.0 + Code Panel + LLM-ready
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import Scene from './Scene.jsx'
-import { route, describe } from './router.js'
+import { route } from './router.js'
+import { getCode } from './codeGen.js'
 
 const EXAMPLES = [
   'show me a spinning cube',
@@ -11,37 +12,38 @@ const EXAMPLES = [
   'display a galaxy',
   'give me ocean waves',
   'zoom into a diamond',
+  'orbit around a star',
+  'fly through space',
+  'bounce a ball',
 ]
 
 export default function App() {
   const [value, setValue] = useState('')
   const [descriptor, setDescriptor] = useState(null)
+  const [code, setCode] = useState(null)
   const [history, setHistory] = useState([])
+  const [panel, setPanel] = useState('json') // 'json' | 'code'
   const [debugOpen, setDebugOpen] = useState(true)
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
-  const errorTimer = useRef(null)
   const [exampleIdx, setExampleIdx] = useState(0)
 
   useEffect(() => {
-    // Focus input on mount
     setTimeout(() => inputRef.current?.focus(), 100)
     const t = setInterval(() => setExampleIdx(i => (i + 1) % EXAMPLES.length), 2800)
     return () => clearInterval(t)
   }, [])
 
-  useEffect(() => {
-    if (!error) return
-    clearTimeout(errorTimer.current)
-    errorTimer.current = setTimeout(() => setError(null), 3000)
-  }, [error])
-
   const submit = useCallback((text) => {
     const out = route(text)
+    const c = getCode(out)
     setDescriptor(out)
-    setHistory(prev => [{ text, out, ts: Date.now() }, ...prev].slice(0, 30))
+    setCode(c)
+    setHistory(prev => [{ text, out, code: c, ts: Date.now() }, ...prev].slice(0, 30))
     if (out.error) { setError(out.message || 'Unknown command'); return }
     setError(null)
+    // Auto-switch to code panel after first render
+    if (c) setPanel('code')
   }, [])
 
   const handleSubmit = (e) => {
@@ -50,22 +52,14 @@ export default function App() {
     if (!t) return
     submit(t)
     setValue('')
-    // Re-focus input after submit
     setTimeout(() => inputRef.current?.focus(), 50)
-  }
-
-  // Refocus input whenever canvas might steal focus
-  const handleCanvasClick = (e) => {
-    // Let the canvas handle its own events but bring focus back to input
-    setTimeout(() => inputRef.current?.focus(), 100)
   }
 
   const active = descriptor?.renderer || null
 
   return (
     <>
-      {/* 3D Canvas — pointer events intercepted so input keeps focus */}
-      <div className="canvas-wrap" onClick={handleCanvasClick}>
+      <div className="canvas-wrap" onPointerUp={() => setTimeout(() => inputRef.current?.focus(), 80)}>
         <Scene descriptor={descriptor} />
       </div>
       <div className="vignette" />
@@ -76,7 +70,7 @@ export default function App() {
           <span className="logo">AGIS</span>
           <span className="ver">TRANSLATOR v2.0</span>
         </div>
-        <div className={`status-pill${descriptor?.object === 'sphere' ? ' sphere' : ''}`}>
+        <div className={`status-pill${active ? ' active' : ''}`}>
           <span className="dot" />
           <span>{active ? `rendering · ${descriptor.object}` : 'awaiting input'}</span>
         </div>
@@ -85,20 +79,33 @@ export default function App() {
       {/* Center hint */}
       <div className={`hint${active ? ' hide' : ''}`}>
         <h1 className="big">Visual <b>Translator</b></h1>
-        <p className="sub">type any prompt · router converts it to scene JSON</p>
+        <p className="sub">type any prompt · router converts it to scene JSON + code</p>
         <p className="example">e.g. &ldquo;{EXAMPLES[exampleIdx]}&rdquo;</p>
       </div>
 
       {/* Debug Panel */}
       <div className={`debug-panel${debugOpen ? ' open' : ''}`}>
         <div className="debug-header" onClick={() => setDebugOpen(o => !o)}>
-          <span className="debug-title">⬡ SCENE JSON</span>
-          <span className="debug-toggle">{debugOpen ? '▲' : '▼'}</span>
+          <span className="debug-title">⬡ {panel === 'code' ? 'THREEJS CODE' : 'SCENE JSON'}</span>
+          <div className="debug-header-right">
+            {debugOpen && descriptor && !descriptor.error && (
+              <div className="tab-switch" onClick={e => e.stopPropagation()}>
+                <button
+                  className={`tab-btn${panel === 'json' ? ' on' : ''}`}
+                  onClick={() => setPanel('json')}>JSON</button>
+                <button
+                  className={`tab-btn${panel === 'code' ? ' on' : ''}`}
+                  onClick={() => setPanel('code')}>CODE</button>
+              </div>
+            )}
+            <span className="debug-toggle">{debugOpen ? '▲' : '▼'}</span>
+          </div>
         </div>
         {debugOpen && (
           <div className="debug-body">
             {descriptor ? (
-              <pre className={`scene-json${descriptor.error ? ' error' : ''}`}>
+              panel === 'json' ? (
+                <pre className={`scene-json${descriptor.error ? ' error' : ''}`}>
 {JSON.stringify({
   intent:        descriptor.intent,
   object:        descriptor.object,
@@ -107,15 +114,21 @@ export default function App() {
   ...(descriptor.color ? { color: descriptor.color } : {}),
   ...(descriptor.error ? { error: descriptor.error, message: descriptor.message } : {}),
 }, null, 2)}
-              </pre>
+                </pre>
+              ) : (
+                <pre className="scene-json code-view">
+                  {code || '// generating…'}
+                </pre>
+              )
             ) : (
               <p className="debug-empty">No prompt yet — try one below.</p>
             )}
-            <div className="history-label">History ({history.length})</div>
+            <div className="history-label">HISTORY ({history.length})</div>
             <div className="history-list">
               {history.map((h) => (
-                <div key={h.ts} className={`history-item${h.out.error ? ' err' : ''}`}
-                     onClick={() => { submit(h.text); setTimeout(() => inputRef.current?.focus(), 50) }}
+                <div key={h.ts}
+                     className={`history-item${h.out.error ? ' err' : ''}`}
+                     onClick={() => { setDescriptor(h.out); setCode(h.code); if (h.code) setPanel('code'); setTimeout(() => inputRef.current?.focus(), 50) }}
                      title="re-run">
                   <span className="h-text">{h.text}</span>
                   <span className="h-obj">{h.out.object || '—'}</span>
@@ -129,7 +142,7 @@ export default function App() {
       {/* Error toast */}
       {error && <div className="toast show">{error}</div>}
 
-      {/* Bottom dock — onClick refocuses input */}
+      {/* Bottom dock */}
       <div className="dock" onClick={() => inputRef.current?.focus()}>
         <form className="dock-inner" onSubmit={handleSubmit}>
           <span className="prompt">›</span>
@@ -138,7 +151,7 @@ export default function App() {
             type="text"
             value={value}
             onChange={e => setValue(e.target.value)}
-            onBlur={() => setTimeout(() => inputRef.current?.focus(), 80)}
+            onBlur={() => setTimeout(() => inputRef.current?.focus(), 100)}
             placeholder={`try "${EXAMPLES[exampleIdx]}"`}
             autoComplete="off" autoCorrect="off" spellCheck="false"
             aria-label="AGIS prompt input"
