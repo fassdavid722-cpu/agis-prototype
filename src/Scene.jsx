@@ -1,183 +1,92 @@
-// Scene.jsx
-// React Three Fiber canvas content.
-// Reads the router output (the `renderer` descriptor) and shows the
-// matching object. Camera transitions smoothly between objects using
-// lerped animation in useFrame. Objects fade out/in with opacity.
-
+// Scene.jsx — AGIS v2.0
 import React, { useRef, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Float, Environment, ContactShadows } from '@react-three/drei'
+import { Float, Environment, ContactShadows, Stars, MeshDistortMaterial } from '@react-three/drei'
 import * as THREE from 'three'
 
-// ---- Camera target positions per renderer ----
-// Each object lives at a different spot in space; the camera flies to it.
-const CAMERA_TARGETS = {
-  cube: {
-    position: new THREE.Vector3(0, 0.6, 5.2),
-    lookAt: new THREE.Vector3(-2.2, 0, 0),
-  },
-  sphere: {
-    position: new THREE.Vector3(0, 0.6, 5.2),
-    lookAt: new THREE.Vector3(2.2, 0, 0),
-  },
-  home: {
-    position: new THREE.Vector3(0, 0.9, 7.5),
-    lookAt: new THREE.Vector3(0, 0, 0),
-  },
+const CAM = {
+  cube:       { pos: [0, 0.6, 5.2],  look: [-2.2, 0, 0] },
+  sphere:     { pos: [0, 0.6, 5.2],  look: [2.2, 0, 0]  },
+  torus:      { pos: [0, 0.8, 5.8],  look: [0, 0, 0]    },
+  cylinder:   { pos: [0, 0.6, 5.2],  look: [-1.5, 0, 0] },
+  cone:       { pos: [0, 0.6, 5.2],  look: [1.5, 0, 0]  },
+  plane:      { pos: [0, 4, 2],      look: [0, 0, 0]    },
+  octahedron: { pos: [0, 0.6, 5.2],  look: [0, 0.5, 0]  },
+  star:       { pos: [0, 0.6, 5.5],  look: [0, 0, 0]    },
+  environment:{ pos: [0, 0.9, 7.5],  look: [0, 0, 0]    },
+  home:       { pos: [0, 0.9, 7.5],  look: [0, 0, 0]    },
 }
 
-// ---- Animated camera that eases toward the active renderer's target ----
-function Rig({ active }) {
+function Rig({ renderer }) {
   const { camera } = useThree()
-  const target = useMemo(() => {
-    return CAMERA_TARGETS[active] || CAMERA_TARGETS.home
-  }, [active])
-
-  // Persistent refs so lerp works across frames
-  const lookRef = useRef(new THREE.Vector3().copy(camera.position))
+  const t = CAM[renderer] || CAM.home
+  const posTarget = useMemo(() => new THREE.Vector3(...t.pos), [renderer])
+  const lookTarget = useMemo(() => new THREE.Vector3(...t.look), [renderer])
   const posRef = useRef(new THREE.Vector3().copy(camera.position))
-
-  useFrame((_, delta) => {
-    const ease = 1 - Math.pow(0.001, delta)
-    posRef.current.lerp(target.position, ease)
-    lookRef.current.lerp(target.lookAt, ease)
+  const lookRef = useRef(new THREE.Vector3(0, 0, 0))
+  useFrame((_, dt) => {
+    const e = 1 - Math.pow(0.001, dt)
+    posRef.current.lerp(posTarget, e)
+    lookRef.current.lerp(lookTarget, e)
     camera.position.copy(posRef.current)
     camera.lookAt(lookRef.current)
   })
-
   return null
 }
 
-// ---- A fading, floating mesh wrapper ----
-// Properly nests material + geometry inside a <mesh>.
-function FadingMesh({ visible, position, color, geometry }) {
+function FadeMesh({ visible, position, color, geo, spin }) {
   const matRef = useRef()
   const grpRef = useRef()
-
-  useFrame((_, delta) => {
+  useFrame((state, dt) => {
     if (!matRef.current || !grpRef.current) return
-    const target = visible ? 1 : 0
-    const ease = 1 - Math.pow(0.002, delta)
-    const next = THREE.MathUtils.lerp(matRef.current.opacity, target, ease)
-    matRef.current.opacity = next
+    const e = 1 - Math.pow(0.002, dt)
+    matRef.current.opacity = THREE.MathUtils.lerp(matRef.current.opacity, visible ? 1 : 0, e)
     matRef.current.transparent = true
-    const scale = 0.5 + next * 0.5 // grows as it fades in
-    grpRef.current.scale.setScalar(scale)
+    const s = 0.5 + matRef.current.opacity * 0.5
+    grpRef.current.scale.setScalar(s)
+    if (spin) grpRef.current.rotation.y += dt * 0.5
   })
-
   return (
     <group ref={grpRef} position={position}>
       <mesh>
-        {geometry}
-        <meshStandardMaterial
-          ref={matRef}
-          color={color}
-          transparent
-          opacity={visible ? 1 : 0}
-          roughness={0.22}
-          metalness={0.4}
-          emissive={color}
-          emissiveIntensity={0.15}
-        />
+        {geo}
+        <meshStandardMaterial ref={matRef} color={color} transparent opacity={0} roughness={0.22} metalness={0.4} emissive={color} emissiveIntensity={0.18} />
       </mesh>
     </group>
   )
 }
 
-// ---- The cube renderer ----
-function Cube({ active }) {
-  return (
-    <FadingMesh
-      visible={active}
-      position={[-2.2, 0, 0]}
-      color="#6ea8ff"
-      geometry={<boxGeometry args={[1.6, 1.6, 1.6]} />}
-    />
-  )
+function StarField({ visible }) {
+  return visible ? <Stars radius={80} depth={50} count={3000} factor={5} fade speed={1} /> : null
 }
 
-// ---- The sphere renderer ----
-function Sphere({ active }) {
+export default function Scene({ descriptor }) {
+  const r = descriptor?.renderer || null
+  const color = descriptor?.color || '#ffffff'
+  const intent = descriptor?.intent || 'show'
+  const spin = intent === 'rotate' || intent === 'animate'
+
   return (
-    <FadingMesh
-      visible={active}
-      position={[2.2, 0, 0]}
-      color="#ff7ac6"
-      geometry={<sphereGeometry args={[1.05, 64, 64]} />}
-    />
-  )
-}
+    <Canvas camera={{ position: [0, 0.9, 7.5], fov: 52 }} dpr={[1, 2]}>
+      <Rig renderer={r} />
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[5, 8, 5]} intensity={1.4} castShadow />
+      <pointLight position={[-5, 3, -5]} intensity={0.6} color="#5580ff" />
 
-// ---- Ambient floating particles for atmosphere ----
-function Particles() {
-  const ref = useRef()
-  const positions = useMemo(() => {
-    const arr = new Float32Array(200 * 3)
-    for (let i = 0; i < 200; i++) {
-      arr[i * 3] = (Math.random() - 0.5) * 18
-      arr[i * 3 + 1] = (Math.random() - 0.5) * 10
-      arr[i * 3 + 2] = (Math.random() - 0.5) * 12 - 2
-    }
-    return arr
-  }, [])
-  useFrame((_, delta) => {
-    if (ref.current) ref.current.rotation.y += delta * 0.02
-  })
-  return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={positions.length / 3}
-          array={positions}
-          itemSize={3}
-        />
-      </bufferGeometry>
-      <pointsMaterial
-        size={0.03}
-        color="#8aa0ff"
-        transparent
-        opacity={0.6}
-        sizeAttenuation
-      />
-    </points>
-  )
-}
-
-// ---- Public Scene component ----
-export default function Scene({ active }) {
-  return (
-    <Canvas
-      dpr={[1, 2]}
-      gl={{ antialias: true, alpha: true }}
-      camera={{ position: [0, 0.9, 7.5], fov: 50 }}
-    >
-      <color attach="background" args={['#05060a']} />
-      <fog attach="fog" args={['#05060a', 8, 20]} />
-
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[5, 8, 5]} intensity={1.1} />
-      <pointLight position={[-6, 2, -4]} intensity={0.6} color="#6ea8ff" />
-      <pointLight position={[6, 2, -4]} intensity={0.6} color="#ff7ac6" />
-
-      <Rig active={active} />
-
-      <Float speed={2} rotationIntensity={0.4} floatIntensity={0.6}>
-        <Cube active={active === 'cube'} />
-      </Float>
-      <Float speed={2} rotationIntensity={0.4} floatIntensity={0.6}>
-        <Sphere active={active === 'sphere'} />
+      <Float speed={1.4} rotationIntensity={0.5} floatIntensity={0.6} floatingRange={[-0.15, 0.15]}>
+        <FadeMesh visible={r === 'cube'}       position={[-2.2,0,0]} color={color} geo={<boxGeometry args={[1.6,1.6,1.6]} />} spin={spin} />
+        <FadeMesh visible={r === 'sphere'}     position={[2.2,0,0]}  color={color} geo={<sphereGeometry args={[0.9,64,64]} />} spin={spin} />
+        <FadeMesh visible={r === 'torus'}      position={[0,0,0]}    color={color} geo={<torusGeometry args={[0.9,0.35,32,100]} />} spin={spin} />
+        <FadeMesh visible={r === 'cylinder'}   position={[-1.5,0,0]} color={color} geo={<cylinderGeometry args={[0.7,0.7,2,64]} />} spin={spin} />
+        <FadeMesh visible={r === 'cone'}       position={[1.5,0,0]}  color={color} geo={<coneGeometry args={[0.8,2,64]} />} spin={spin} />
+        <FadeMesh visible={r === 'plane'}      position={[0,-0.5,0]} color={color} geo={<planeGeometry args={[4,4,10,10]} />} spin={false} />
+        <FadeMesh visible={r === 'octahedron'} position={[0,0.5,0]}  color={color} geo={<octahedronGeometry args={[1.1]} />} spin={spin} />
+        <FadeMesh visible={r === 'star'}       position={[0,0,0]}    color={color} geo={<sphereGeometry args={[0.6,8,8]} />} spin={spin} />
       </Float>
 
-      <ContactShadows
-        position={[0, -1.3, 0]}
-        opacity={0.35}
-        scale={20}
-        blur={2.5}
-        far={6}
-      />
+      <StarField visible={r === 'environment' && descriptor?.object === 'space'} />
 
-      <Particles />
+      <ContactShadows opacity={0.3} scale={12} blur={2.5} far={6} position={[0,-1.5,0]} />
       <Environment preset="city" />
     </Canvas>
   )
