@@ -66,3 +66,50 @@ html,body,#root{margin:0;padding:0;height:100%;width:100%;overflow:hidden;backgr
   .statusbar{padding:14px 16px}
   .dock{padding:0 12px 18px}
 }
+
+/* ── Code Panel Tabs ── */
+.debug-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-switch {
+  display: flex;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.tab-btn {
+  all: unset;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: rgba(255,255,255,0.4);
+  transition: all 0.15s;
+  letter-spacing: 0.08em;
+}
+
+.tab-btn.on {
+  background: rgba(110, 168, 255, 0.25);
+  color: #6ea8ff;
+}
+
+.tab-btn:hover:not(.on) {
+  color: rgba(255,255,255,0.7);
+}
+
+/* Code view — slightly different color scheme */
+.scene-json.code-view {
+  color: #a8ffd4;
+  font-size: 9.5px;
+  line-height: 1.55;
+  max-height: 280px;
+}
+
+/* Keyword highlights via CSS — simple color shifts */
+.scene-json.code-view .kw { color: #c792ea; }
