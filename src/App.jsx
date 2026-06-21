@@ -30,43 +30,36 @@ export default function App() {
   const toastTimer = useRef(null)
 
   // Run input through the router and apply the descriptor.
-  const submit = useCallback(
-    (text) => {
-      const out = route(text)
-      setDescriptor(out)
+  const submit = useCallback((text) => {
+    const out = route(text)
+    setDescriptor(out)
 
-      if (out.error) {
-        setError(out.message || 'Unknown command')
-        setChipVisible(false)
-        return
-      }
+    if (out.error) {
+      setError(out.message || 'Unknown command')
+      setChipVisible(false)
+      return
+    }
 
-      if (out.renderer) {
-        setActive(out.renderer)
-        setError(null)
-        setChipVisible(true)
-        // auto-hide the response chip after a few seconds
-        clearTimeout(chipTimer.current)
-        chipTimer.current = setTimeout(() => setChipVisible(false), 3200)
-      }
-    },
-    []
-  )
+    if (out.renderer) {
+      setActive(out.renderer)
+      setError(null)
+      setChipVisible(true)
+      clearTimeout(chipTimer.current)
+      chipTimer.current = setTimeout(() => setChipVisible(false), 3200)
+    }
+  }, [])
 
   const handleSubmit = (e) => {
-    e?.preventDefault?.()
+    e.preventDefault()
     const text = value.trim()
     if (!text) return
     submit(text)
     setValue('')
   }
 
-  // Focus input on mount + when clicking anywhere on the canvas
+  // Focus input on mount only — don't steal focus from button clicks
   useEffect(() => {
     inputRef.current?.focus()
-    const focusOnClick = () => inputRef.current?.focus()
-    window.addEventListener('click', focusOnClick)
-    return () => window.removeEventListener('click', focusOnClick)
   }, [])
 
   // Auto-dismiss error toast

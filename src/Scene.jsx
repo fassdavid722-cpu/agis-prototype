@@ -33,15 +33,14 @@ function Rig({ active }) {
     return CAMERA_TARGETS[active] || CAMERA_TARGETS.home
   }, [active])
 
+  // Persistent refs so lerp works across frames
   const lookRef = useRef(new THREE.Vector3().copy(camera.position))
   const posRef = useRef(new THREE.Vector3().copy(camera.position))
 
   useFrame((_, delta) => {
-    // smooth, frame-rate independent easing
-    const ease = 1 - Math.pow(0.001, delta) // ~fast but smooth
+    const ease = 1 - Math.pow(0.001, delta)
     posRef.current.lerp(target.position, ease)
     lookRef.current.lerp(target.lookAt, ease)
-
     camera.position.copy(posRef.current)
     camera.lookAt(lookRef.current)
   })
@@ -49,31 +48,38 @@ function Rig({ active }) {
   return null
 }
 
-// ---- A fading object wrapper ----
-function FadingObject({ visible, position, color, children }) {
-  const ref = useRef()
+// ---- A fading, floating mesh wrapper ----
+// Properly nests material + geometry inside a <mesh>.
+function FadingMesh({ visible, position, color, geometry }) {
+  const matRef = useRef()
+  const grpRef = useRef()
+
   useFrame((_, delta) => {
-    if (!ref.current) return
+    if (!matRef.current || !grpRef.current) return
     const target = visible ? 1 : 0
     const ease = 1 - Math.pow(0.002, delta)
-    const next = THREE.MathUtils.lerp(ref.current.opacity, target, ease)
-    ref.current.opacity = next
-    const scale = 0.6 + next * 0.4 // grows slightly as it fades in
-    ref.current.parent.scale.setScalar(scale)
+    const next = THREE.MathUtils.lerp(matRef.current.opacity, target, ease)
+    matRef.current.opacity = next
+    matRef.current.transparent = true
+    const scale = 0.5 + next * 0.5 // grows as it fades in
+    grpRef.current.scale.setScalar(scale)
   })
+
   return (
-    <group position={position}>
-      <meshStandardMaterial
-        ref={ref}
-        color={color}
-        transparent
-        opacity={visible ? 1 : 0}
-        roughness={0.25}
-        metalness={0.35}
-        emissive={color}
-        emissiveIntensity={0.12}
-      />
-      {children}
+    <group ref={grpRef} position={position}>
+      <mesh>
+        {geometry}
+        <meshStandardMaterial
+          ref={matRef}
+          color={color}
+          transparent
+          opacity={visible ? 1 : 0}
+          roughness={0.22}
+          metalness={0.4}
+          emissive={color}
+          emissiveIntensity={0.15}
+        />
+      </mesh>
     </group>
   )
 }
@@ -81,18 +87,24 @@ function FadingObject({ visible, position, color, children }) {
 // ---- The cube renderer ----
 function Cube({ active }) {
   return (
-    <FadingObject visible={active} position={[-2.2, 0, 0]} color="#6ea8ff">
-      <boxGeometry args={[1.6, 1.6, 1.6]} />
-    </FadingObject>
+    <FadingMesh
+      visible={active}
+      position={[-2.2, 0, 0]}
+      color="#6ea8ff"
+      geometry={<boxGeometry args={[1.6, 1.6, 1.6]} />}
+    />
   )
 }
 
 // ---- The sphere renderer ----
 function Sphere({ active }) {
   return (
-    <FadingObject visible={active} position={[2.2, 0, 0]} color="#ff7ac6">
-      <sphereGeometry args={[1.05, 64, 64]} />
-    </FadingObject>
+    <FadingMesh
+      visible={active}
+      position={[2.2, 0, 0]}
+      color="#ff7ac6"
+      geometry={<sphereGeometry args={[1.05, 64, 64]} />}
+    />
   )
 }
 
@@ -144,7 +156,7 @@ export default function Scene({ active }) {
       <fog attach="fog" args={['#05060a', 8, 20]} />
 
       <ambientLight intensity={0.4} />
-      <directionalLight position={[5, 8, 5]} intensity={1.1} castShadow />
+      <directionalLight position={[5, 8, 5]} intensity={1.1} />
       <pointLight position={[-6, 2, -4]} intensity={0.6} color="#6ea8ff" />
       <pointLight position={[6, 2, -4]} intensity={0.6} color="#ff7ac6" />
 
