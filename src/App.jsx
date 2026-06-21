@@ -24,7 +24,8 @@ export default function App() {
   const [exampleIdx, setExampleIdx] = useState(0)
 
   useEffect(() => {
-    inputRef.current?.focus()
+    // Focus input on mount
+    setTimeout(() => inputRef.current?.focus(), 100)
     const t = setInterval(() => setExampleIdx(i => (i + 1) % EXAMPLES.length), 2800)
     return () => clearInterval(t)
   }, [])
@@ -49,14 +50,24 @@ export default function App() {
     if (!t) return
     submit(t)
     setValue('')
+    // Re-focus input after submit
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  // Refocus input whenever canvas might steal focus
+  const handleCanvasClick = (e) => {
+    // Let the canvas handle its own events but bring focus back to input
+    setTimeout(() => inputRef.current?.focus(), 100)
   }
 
   const active = descriptor?.renderer || null
 
   return (
     <>
-      {/* 3D Canvas */}
-      <div className="canvas-wrap"><Scene descriptor={descriptor} /></div>
+      {/* 3D Canvas — pointer events intercepted so input keeps focus */}
+      <div className="canvas-wrap" onClick={handleCanvasClick}>
+        <Scene descriptor={descriptor} />
+      </div>
       <div className="vignette" />
 
       {/* Top bar */}
@@ -102,9 +113,10 @@ export default function App() {
             )}
             <div className="history-label">History ({history.length})</div>
             <div className="history-list">
-              {history.map((h, i) => (
+              {history.map((h) => (
                 <div key={h.ts} className={`history-item${h.out.error ? ' err' : ''}`}
-                     onClick={() => submit(h.text)} title="re-run">
+                     onClick={() => { submit(h.text); setTimeout(() => inputRef.current?.focus(), 50) }}
+                     title="re-run">
                   <span className="h-text">{h.text}</span>
                   <span className="h-obj">{h.out.object || '—'}</span>
                 </div>
@@ -117,8 +129,8 @@ export default function App() {
       {/* Error toast */}
       {error && <div className="toast show">{error}</div>}
 
-      {/* Bottom dock */}
-      <div className="dock">
+      {/* Bottom dock — onClick refocuses input */}
+      <div className="dock" onClick={() => inputRef.current?.focus()}>
         <form className="dock-inner" onSubmit={handleSubmit}>
           <span className="prompt">›</span>
           <input
@@ -126,6 +138,7 @@ export default function App() {
             type="text"
             value={value}
             onChange={e => setValue(e.target.value)}
+            onBlur={() => setTimeout(() => inputRef.current?.focus(), 80)}
             placeholder={`try "${EXAMPLES[exampleIdx]}"`}
             autoComplete="off" autoCorrect="off" spellCheck="false"
             aria-label="AGIS prompt input"
