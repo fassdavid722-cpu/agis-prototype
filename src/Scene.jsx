@@ -1,236 +1,195 @@
-// Scene.jsx — AGIS v3.0 — Interactive visual workspace
-// Full orbit controls, clickable objects, isolate mode, modifications
-import React, { useRef, useMemo, useEffect, useState } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Stars, Sparkles, ContactShadows, Environment, Float, Html } from '@react-three/drei'
-import * as THREE from 'three'
+// Scene.jsx — AGIS v4.0 — Real models, static world, YOU orbit
+import React, { useRef, useState } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { OrbitControls, ContactShadows, Environment, Stars, Grid, Html } from '@react-three/drei'
+import { ModelForObject } from './Models.jsx'
 
-// ── Semantic geometry picker ─────────────────────────────────────────────────
-export function pickGeometry(name) {
-  const n = (name || '').toLowerCase()
-  if (/face|head|human|person|skull|portrait|eye|iris/.test(n))     return { type: 'sphere', args: [1.1, 64, 64] }
-  if (/dna|helix|spiral|coil|spring/.test(n))                        return { type: 'torusKnot', args: [0.8, 0.22, 200, 20, 2, 3] }
-  if (/planet|moon|earth|mars|jupiter|saturn|star\b|sun|asteroid/.test(n)) return { type: 'sphere', args: [1.0, 64, 64] }
-  if (/black.?hole|wormhole|vortex|singularity/.test(n))             return { type: 'torus', args: [1.1, 0.55, 48, 200] }
-  if (/dragon|creature|beast|monster|dinosaur/.test(n))              return { type: 'octahedron', args: [1.2, 2] }
-  if (/crystal|gem|diamond|jewel|prism/.test(n))                     return { type: 'octahedron', args: [1.0, 0] }
-  if (/brain|neural|neuron|synapse|mind|network/.test(n))            return { type: 'torusKnot', args: [0.7, 0.3, 256, 16, 3, 5] }
-  if (/heart/.test(n))                                               return { type: 'sphere', args: [1.0, 32, 32] }
-  if (/tree|forest|plant|leaf|flower/.test(n))                       return { type: 'cone', args: [0.9, 2.4, 6] }
-  if (/mountain|terrain|volcano|cliff|hill|peak|pyramid/.test(n))   return { type: 'cone', args: [1.4, 2.2, 4] }
-  if (/ocean|water|wave|sea|lake|river/.test(n))                     return { type: 'plane', args: [5, 5, 32, 32] }
-  if (/city|building|skyscraper|tower|eiffel|column/.test(n))        return { type: 'box', args: [0.8, 2.8, 0.8] }
-  if (/galaxy|universe|cosmos|nebula/.test(n))                       return { type: 'sphere', args: [1.5, 32, 32] }
-  if (/robot|machine|android|cyborg|mech/.test(n))                   return { type: 'box', args: [1.2, 1.8, 1.0] }
-  if (/engine|piston|motor|cylinder\b/.test(n))                      return { type: 'cylinder', args: [0.5, 0.5, 1.4, 32] }
-  if (/wheel|tire|ring|band|loop|hoop|torus/.test(n))                return { type: 'torus', args: [0.9, 0.3, 32, 100] }
-  if (/sword|blade|knife|weapon|gun|rifle/.test(n))                  return { type: 'cylinder', args: [0.06, 0.06, 2.8, 12] }
-  if (/fire|flame|explosion|lava|magma/.test(n))                     return { type: 'cone', args: [0.8, 2.0, 32] }
-  if (/atom|molecule|cell|electron|proton|nucleus/.test(n))          return { type: 'icosahedron', args: [1.0, 1] }
-  if (/clock|watch|hourglass|time/.test(n))                          return { type: 'torus', args: [1.0, 0.12, 16, 100] }
-  if (/car|vehicle|truck|bus|chassis|body/.test(n))                  return { type: 'box', args: [2.0, 0.7, 1.0] }
-  if (/cube|box|block/.test(n))                                       return { type: 'box', args: [1.6, 1.6, 1.6] }
-  if (/sphere|ball|globe/.test(n))                                    return { type: 'sphere', args: [1.0, 64, 64] }
-  if (/cone/.test(n))                                                  return { type: 'cone', args: [0.9, 2.0, 32] }
-  return { type: 'icosahedron', args: [1.0, 2] }
+// Ground grid plane
+function Floor() {
+  return (
+    <Grid
+      position={[0, -2.2, 0]}
+      args={[40, 40]}
+      cellSize={0.6}
+      cellThickness={0.4}
+      cellColor="#1a1a2e"
+      sectionSize={3}
+      sectionThickness={1}
+      sectionColor="#2a2a4e"
+      fadeDistance={28}
+      fadeStrength={1.2}
+      followCamera={false}
+      infiniteGrid
+    />
+  )
 }
 
-function makeGeo(g) {
-  switch (g.type) {
-    case 'box':          return <boxGeometry args={g.args} />
-    case 'sphere':       return <sphereGeometry args={g.args} />
-    case 'torus':        return <torusGeometry args={g.args} />
-    case 'torusKnot':    return <torusKnotGeometry args={g.args} />
-    case 'cone':         return <coneGeometry args={g.args} />
-    case 'cylinder':     return <cylinderGeometry args={g.args} />
-    case 'octahedron':   return <octahedronGeometry args={g.args} />
-    case 'icosahedron':  return <icosahedronGeometry args={g.args} />
-    case 'plane':        return <planeGeometry args={g.args} />
-    default:             return <icosahedronGeometry args={[1, 2]} />
-  }
-}
-
-// ── Single selectable object ─────────────────────────────────────────────────
-function SceneObject({ obj, isSelected, isIsolated, onSelect, onDeselect }) {
-  const meshRef = useRef()
-  const [hovered, setHovered] = useState(false)
-  const geo = useMemo(() => pickGeometry(obj.name), [obj.name])
-  const isOcean = /ocean|water|wave|sea|lake/.test((obj.name || '').toLowerCase())
-
-  // Wave animation for ocean
-  const geoRef = useRef()
-  useFrame((state, dt) => {
-    if (!meshRef.current) return
-    // Spin if animate intent
-    if (obj.spin) meshRef.current.rotation.y += dt * 0.5
-    // Breathing for organic
-    if (obj.breathe) {
-      const t = state.clock.elapsedTime
-      meshRef.current.scale.setScalar(1 + Math.sin(t * 1.4) * 0.04)
-    }
-    // Ocean waves
-    if (isOcean && geoRef.current) {
-      const pos = geoRef.current.attributes.position
-      const t = state.clock.elapsedTime
-      for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i), z = pos.getZ(i)
-        pos.setY(i, Math.sin(x * 1.5 + t) * 0.3 + Math.cos(z * 1.2 + t * 0.8) * 0.2)
-      }
-      pos.needsUpdate = true
-      geoRef.current.computeVertexNormals()
-    }
-  })
-
-  // Opacity based on isolate mode
-  const targetOpacity = isIsolated === false ? 0.08 : 1
-  const opacityRef = useRef(1)
+// Selection ring around selected object
+function SelectionRing({ visible }) {
+  const ref = useRef()
   useFrame((_, dt) => {
-    if (!meshRef.current?.material) return
-    opacityRef.current = THREE.MathUtils.lerp(opacityRef.current, targetOpacity, 1 - Math.pow(0.001, dt))
-    meshRef.current.material.opacity = opacityRef.current
-    meshRef.current.material.transparent = opacityRef.current < 1
+    if (ref.current) ref.current.rotation.y += dt * 0.8
   })
+  if (!visible) return null
+  return (
+    <mesh ref={ref} rotation={[Math.PI / 2, 0, 0]} position={[0, -1.6, 0]}>
+      <torusGeometry args={[1.9, 0.03, 8, 80]} />
+      <meshBasicMaterial color="#ffffff" transparent opacity={0.55} />
+    </mesh>
+  )
+}
 
-  const color = obj.color || '#6ea8ff'
-  const isGlass = /crystal|gem|diamond|glass|lens/.test((obj.name || '').toLowerCase())
-  const isMetal = /metal|robot|machine|chrome|steel/.test((obj.name || '').toLowerCase())
-  const isFire  = /fire|flame|lava|sun/.test((obj.name || '').toLowerCase())
-  const isGalaxy = /galaxy|nebula|universe|cosmos/.test((obj.name || '').toLowerCase())
+// Wrapper for each object in the scene
+function SceneObject({ obj, isSelected, isIsolated, onSelect, onDeselect }) {
+  const [hovered, setHovered] = useState(false)
+  const grpRef = useRef()
 
-  const matProps = {
-    roughness:  isGlass ? 0.0 : isMetal ? 0.1 : isFire ? 0.8 : 0.3,
-    metalness:  isMetal ? 0.95 : isGlass ? 0.0 : 0.35,
-    emissive:   color,
-    emissiveIntensity: isSelected ? 0.55 : hovered ? 0.35 : isFire ? 0.9 : 0.18,
-    transparent: isGlass || isIsolated === false,
-    opacity: 1,
-  }
+  // Fade opacity for isolate mode
+  useFrame((_, dt) => {
+    if (!grpRef.current) return
+    const target = isIsolated === false ? 0.06 : 1
+    grpRef.current.children.forEach(child => {
+      child.traverse(c => {
+        if (c.isMesh && c.material) {
+          const curr = c.material.opacity ?? 1
+          c.material.opacity = curr + (target - curr) * (1 - Math.pow(0.001, dt))
+          c.material.transparent = c.material.opacity < 0.99
+        }
+      })
+    })
+  })
 
   return (
-    <group position={obj.position || [0, 0, 0]}>
-      <mesh
-        ref={meshRef}
-        rotation={isOcean ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}
-        onPointerOver={e => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer' }}
-        onPointerOut={e => { e.stopPropagation(); setHovered(false); document.body.style.cursor = 'default' }}
+    <group
+      ref={grpRef}
+      position={obj.position || [0, 0, 0]}
+      onPointerOver={e => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer' }}
+      onPointerOut={e => { e.stopPropagation(); setHovered(false); document.body.style.cursor = 'default' }}
+    >
+      <ModelForObject
+        name={obj.name}
+        color={obj.color || '#a78bfa'}
+        selected={isSelected}
         onClick={e => { e.stopPropagation(); isSelected ? onDeselect() : onSelect(obj.id) }}
-      >
-        {isOcean
-          ? <planeGeometry ref={geoRef} args={[5, 5, 32, 32]} />
-          : makeGeo(geo)
-        }
-        <meshStandardMaterial color={color} {...matProps} />
-      </mesh>
+        onPointerOver={() => {}}
+        onPointerOut={() => {}}
+      />
 
-      {/* Selection ring */}
-      {isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[1.55, 0.025, 12, 100]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.7} />
-        </mesh>
-      )}
+      <SelectionRing visible={isSelected} />
 
-      {/* Hover ring */}
-      {hovered && !isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[1.52, 0.015, 8, 100]} />
-          <meshBasicMaterial color={color} transparent opacity={0.45} />
-        </mesh>
-      )}
-
-      {/* Label on hover */}
+      {/* Label */}
       {(hovered || isSelected) && (
-        <Html position={[0, 2.0, 0]} center style={{ pointerEvents: 'none' }}>
+        <Html position={[0, 2.4, 0]} center style={{ pointerEvents: 'none' }}>
           <div style={{
-            background: 'rgba(0,0,0,0.8)',
-            border: `1px solid ${isSelected ? '#fff' : color}`,
+            background: 'rgba(0,0,0,0.82)',
+            border: `1px solid ${isSelected ? '#fff' : (obj.color || '#a78bfa')}`,
             borderRadius: 6,
-            padding: '3px 10px',
+            padding: '3px 12px',
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: 11,
-            color: isSelected ? '#fff' : color,
+            color: isSelected ? '#fff' : (obj.color || '#a78bfa'),
             whiteSpace: 'nowrap',
             backdropFilter: 'blur(8px)',
+            letterSpacing: '0.05em',
           }}>
             {obj.name}
-            {isSelected && <span style={{ color: '#888', marginLeft: 8, fontSize: 9 }}>SELECTED</span>}
+            {isSelected && <span style={{ color: '#888', marginLeft: 8, fontSize: 9 }}>● SELECTED</span>}
           </div>
         </Html>
       )}
-
-      {isFire && isSelected && <Sparkles count={60} size={3} speed={1.5} color={color} scale={2.5} />}
-      {isGalaxy && <Sparkles count={200} size={1.5} speed={0.3} color={color} scale={5} />}
     </group>
   )
 }
 
-// ── Main Scene ───────────────────────────────────────────────────────────────
-export default function Scene({ objects, selectedId, isolateMode, onSelect, onDeselect, onCameraChange }) {
-  const controlsRef = useRef()
+// Main exported Scene
+export default function Scene({ objects = [], selectedId, isolateMode, onSelect, onDeselect, onCameraChange }) {
+  const hasSpace = objects.some(o => /space|galaxy|black.?hole|nebula|universe|cosmos/.test((o.name||'').toLowerCase()))
+  const hasOcean = objects.some(o => /ocean|water|sea|lake/.test((o.name||'').toLowerCase()))
 
   function CameraTracker() {
-    const { camera } = useThree()
-    useFrame(() => {
-      if (onCameraChange) {
-        onCameraChange(
-          [camera.position.x, camera.position.y, camera.position.z],
-          camera.position.z
-        )
-      }
+    const { camera } = useFrame ? null : {}
+    useFrame(({ camera }) => {
+      if (onCameraChange) onCameraChange(
+        [camera.position.x, camera.position.y, camera.position.z],
+        camera.position.z
+      )
     })
     return null
   }
 
-  const isSpace = objects.some(o => /space|galaxy|black.?hole|nebula|universe|cosmos|star/.test((o.name || '').toLowerCase()))
-  const isOcean = objects.some(o => /ocean|water|wave|sea/.test((o.name || '').toLowerCase()))
-
   return (
     <Canvas
-      camera={{ position: [0, 1.2, 7], fov: 52 }}
+      shadows
+      camera={{ position: [0, 2.5, 8], fov: 48 }}
       dpr={[1, 2]}
-      onPointerMissed={() => onDeselect && onDeselect()}
+      onPointerMissed={() => onDeselect?.()}
+      gl={{ antialias: true, toneMapping: 3, toneMappingExposure: 1.1 }}
     >
       <CameraTracker />
 
-      {/* FREE orbit controls — user owns the camera */}
+      {/* ── USER owns the camera — full free orbit ── */}
       <OrbitControls
-        ref={controlsRef}
         enablePan={true}
         enableZoom={true}
         enableRotate={true}
-        zoomSpeed={0.8}
-        panSpeed={0.6}
-        rotateSpeed={0.7}
-        minDistance={1.5}
-        maxDistance={30}
+        zoomSpeed={0.9}
+        panSpeed={0.7}
+        rotateSpeed={0.75}
+        minDistance={2}
+        maxDistance={35}
         makeDefault
+        target={[0, 0, 0]}
       />
 
-      <ambientLight intensity={0.45} />
-      <directionalLight position={[5, 8, 5]} intensity={1.6} castShadow />
-      <pointLight position={[-5, 3, -5]} intensity={0.7} color="#5580ff" />
-      {objects.map(o => (
-        <pointLight key={`pl-${o.id}`} position={[0, -2, 2]} intensity={0.35} color={o.color || '#6ea8ff'} />
+      {/* Lighting */}
+      <ambientLight intensity={0.4} />
+      <directionalLight
+        position={[6, 10, 6]}
+        intensity={1.8}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-near={0.5}
+        shadow-camera-far={50}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
+      />
+      <directionalLight position={[-4, 4, -4]} intensity={0.5} color="#6688ff" />
+      <pointLight position={[0, 6, 0]} intensity={0.4} color="#ffffff" />
+
+      {/* Background */}
+      {hasSpace && <Stars radius={120} depth={70} count={5000} factor={5} fade speed={0.5} />}
+      {hasOcean && <fog attach="fog" args={['#0a2040', 12, 40]} />}
+      {!hasSpace && <color attach="background" args={['#05050a']} />}
+
+      {/* Objects */}
+      {objects.map(obj => (
+        <SceneObject
+          key={obj.id}
+          obj={obj}
+          isSelected={selectedId === obj.id}
+          isIsolated={isolateMode ? (selectedId === obj.id ? true : false) : null}
+          onSelect={onSelect}
+          onDeselect={onDeselect}
+        />
       ))}
 
-      {isSpace && <Stars radius={100} depth={60} count={4000} factor={5} fade speed={0.6} />}
-      {isOcean && <fog attach="fog" args={['#1a4a6b', 10, 35]} />}
+      {/* Floor grid */}
+      <Floor />
 
-      <Float speed={0.8} rotationIntensity={0.2} floatIntensity={0.3} floatingRange={[-0.08, 0.08]}>
-        {objects.map(obj => (
-          <SceneObject
-            key={obj.id}
-            obj={obj}
-            isSelected={selectedId === obj.id}
-            isIsolated={isolateMode ? selectedId === obj.id : null}
-            onSelect={onSelect}
-            onDeselect={onDeselect}
-          />
-        ))}
-      </Float>
+      {/* Shadow catcher */}
+      <ContactShadows
+        position={[0, -2.18, 0]}
+        opacity={0.45}
+        scale={20}
+        blur={2.5}
+        far={5}
+        color="#000033"
+      />
 
-      <ContactShadows opacity={0.22} scale={16} blur={3} far={10} position={[0, -2.2, 0]} />
-      <Environment preset="city" />
+      {/* HDRI environment for reflections */}
+      <Environment preset="warehouse" />
     </Canvas>
   )
 }
