@@ -107,7 +107,6 @@ export default function Scene({ objects = [], selectedId, isolateMode, onSelect,
   const hasOcean = objects.some(o => /ocean|water|sea|lake/.test((o.name||'').toLowerCase()))
 
   function CameraTracker() {
-    const { camera } = useFrame ? null : {}
     useFrame(({ camera }) => {
       if (onCameraChange) onCameraChange(
         [camera.position.x, camera.position.y, camera.position.z],
