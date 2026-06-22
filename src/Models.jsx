@@ -162,7 +162,7 @@ export function DNAModel({ color = '#00e5ff', selected, onClick, onPointerOver, 
       {points.map((p, i) => i < N - 1 && (
         <mesh key={`s1-${i}`} position={[(p[0]+points[i+1][0])/2, (p[1]+points[i+1][1])/2, (p[2]+points[i+1][2])/2]}>
           <sphereGeometry args={[0.085, 8, 8]} />
-          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} roughness={0.2} metalness={0.6} emissive={selected?color:'#003344'} emissiveIntensity={selected?0.8:0.3} />
+          <meshStandardMaterial color={color} emissive={selected?color:'#003344'} emissiveIntensity={selected?0.8:0.3} roughness={0.2} metalness={0.6} />
         </mesh>
       ))}
       {points2.map((p, i) => i < N - 1 && (
@@ -564,7 +564,7 @@ export function SwordModel({ color = '#aaddff', selected, onClick, onPointerOver
       {/* Guard */}
       <mesh position={[0, 0.05, 0]}>
         <boxGeometry args={[0.65, 0.1, 0.12]} />
-        <meshStandardMaterial color="#gold" color="#ffd700" roughness={0.2} metalness={0.9} />
+        <meshStandardMaterial color="#ffd700" roughness={0.2} metalness={0.9} />
       </mesh>
       {/* Handle */}
       <mesh position={[0, -0.5, 0]}>
