@@ -113,3 +113,124 @@ html,body,#root{margin:0;padding:0;height:100%;width:100%;overflow:hidden;backgr
 
 /* Keyword highlights via CSS — simple color shifts */
 .scene-json.code-view .kw { color: #c792ea; }
+
+/* ── Grok badge ── */
+.grok-badge {
+  position: fixed;
+  top: 56px;
+  right: 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.06em;
+  pointer-events: none;
+  z-index: 10;
+}
+.grok-badge b { color: #a78bfa; }
+
+/* ── Loading overlay ── */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  pointer-events: none;
+}
+.loading-ring {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(167,139,250,0.2);
+  border-top-color: #a78bfa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: #a78bfa;
+  margin: 0 0 6px;
+}
+.loading-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  margin: 0;
+}
+.dots { animation: blink 1.2s infinite; }
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+/* ── LLM / fallback tags ── */
+.llm-tag {
+  display: inline-block;
+  background: rgba(167,139,250,0.2);
+  color: #a78bfa;
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.fallback-tag {
+  display: inline-block;
+  background: rgba(255,202,88,0.15);
+  color: #ffca58;
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ── Web context pill ── */
+.web-pill {
+  position: fixed;
+  bottom: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.75);
+  border: 1px solid rgba(167,139,250,0.3);
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255,255,255,0.65);
+  max-width: 600px;
+  text-align: center;
+  z-index: 10;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+/* ── Description pill in debug panel ── */
+.desc-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 6px 0;
+  line-height: 1.5;
+  border-left: 2px solid rgba(167,139,250,0.4);
+}
+
+/* ── LLM history items ── */
+.history-item.llm .h-obj { color: #a78bfa; }
+
+/* ── status pill loading ── */
+.status-pill.loading {
+  border-color: rgba(167,139,250,0.4);
+  color: #a78bfa;
+}
+.status-pill.loading .dot { background: #a78bfa; animation: pulse 0.8s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
