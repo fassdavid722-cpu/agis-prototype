@@ -1,22 +1,32 @@
-// App.jsx — AGIS Visual Translator v2.0 — Grok LLM + Web Search + Code Panel
+// App.jsx — AGIS v2.1 — Groq LLM only, universal renderer
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import Scene from './Scene.jsx'
-import { route } from './router.js'
 import { getCode } from './codeGen.js'
-import { groqRoute as grokRoute } from './grokRouter.js'
 
 const EXAMPLES = [
   'show me a human face',
   'visualize a DNA helix',
-  'draw a solar system',
-  'render a dragon',
+  'draw a black hole',
+  'render a dragon breathing fire',
   'show the Eiffel Tower',
-  'display a black hole',
   'give me a neural network',
   'orbit a crystal skull',
-  'make a melting clock',
+  'a melting clock',
   'fly through a nebula',
+  'show me a beating heart',
+  'a glowing atom',
+  'Saturn with its rings',
 ]
+
+async function groqRoute(prompt) {
+  const res = await fetch('/api/route', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
 
 export default function App() {
   const [value, setValue] = useState('')
@@ -27,44 +37,31 @@ export default function App() {
   const [debugOpen, setDebugOpen] = useState(true)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [webContext, setWebContext] = useState(null)
   const inputRef = useRef(null)
-  const [exampleIdx, setExampleIdx] = useState(0)
+  const [exIdx, setExIdx] = useState(0)
 
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 100)
-    const t = setInterval(() => setExampleIdx(i => (i + 1) % EXAMPLES.length), 2800)
+    const t = setInterval(() => setExIdx(i => (i + 1) % EXAMPLES.length), 2800)
     return () => clearInterval(t)
   }, [])
 
   const submit = useCallback(async (text) => {
     setLoading(true)
     setError(null)
-    setWebContext(null)
-
     let out
     try {
-      // Try Grok LLM first
-      out = await grokRoute(text)
-      if (out.error === 'llm_error' || !out.renderer) {
-        // Fallback to local router
-        out = route(text)
-        out.fallback = true
-      }
-    } catch {
-      out = route(text)
-      out.fallback = true
+      out = await groqRoute(text)
+      // If LLM returned an error but no renderer, keep error state
+      if (!out.renderer) out.renderer = 'custom'
+    } catch (e) {
+      out = { error: 'network', message: e.message, raw: text, renderer: null }
     }
-
     const c = getCode(out)
     setDescriptor(out)
     setCode(c)
-    if (out.web_context) setWebContext(out.web_context)
-    setHistory(prev => [{ text, out, code: c, ts: Date.now() }, ...prev].slice(0, 30))
-
-    if (out.error && !out.renderer) {
-      setError(out.message || 'Could not visualize that')
-    }
+    setHistory(prev => [{ text, out, code: c, ts: Date.now() }, ...prev].slice(0, 40))
+    if (out.error && out.error !== 'llm_error') setError(out.message)
     if (c) setPanel('code')
     setLoading(false)
   }, [])
@@ -91,54 +88,52 @@ export default function App() {
       <div className="statusbar">
         <div className="brand">
           <span className="logo">AGIS</span>
-          <span className="ver">TRANSLATOR v2.0</span>
+          <span className="ver">v2.1</span>
         </div>
         <div className={`status-pill${active ? ' active' : ''}${loading ? ' loading' : ''}`}>
           <span className="dot" />
           <span>
-            {loading ? 'thinking…' : active ? `rendering · ${descriptor.object}` : 'awaiting input'}
+            {loading
+              ? 'Groq thinking…'
+              : active
+                ? `${descriptor.object}`
+                : 'awaiting input'}
           </span>
         </div>
       </div>
 
-      {/* Grok badge */}
-      <div className="grok-badge">
-        ⚡ powered by <b>Groq LLaMA 3.3</b> + web search
-      </div>
+      <div className="grok-badge">⚡ <b>Groq</b> LLaMA 3.3 · web search</div>
 
       {/* Center hint */}
       <div className={`hint${active || loading ? ' hide' : ''}`}>
         <h1 className="big">Visual <b>Translator</b></h1>
-        <p className="sub">describe <i>anything</i> · Grok searches + generates scene JSON + code</p>
-        <p className="example">e.g. &ldquo;{EXAMPLES[exampleIdx]}&rdquo;</p>
+        <p className="sub">describe <i>anything</i> — Groq understands, router visualizes it</p>
+        <p className="example">e.g. &ldquo;{EXAMPLES[exIdx]}&rdquo;</p>
       </div>
 
       {/* Loading overlay */}
       {loading && (
         <div className="loading-overlay">
           <div className="loading-ring" />
-          <p className="loading-text">Grok is thinking<span className="dots">...</span></p>
-          <p className="loading-sub">searching the web · building scene JSON</p>
+          <p className="loading-text">Groq is thinking<span className="dots">…</span></p>
+          <p className="loading-sub">generating scene descriptor · web search active</p>
         </div>
       )}
 
       {/* Web context pill */}
-      {webContext && !loading && (
-        <div className="web-pill">
-          🌐 {webContext}
-        </div>
+      {descriptor?.web_context && !loading && (
+        <div className="web-pill">🌐 {descriptor.web_context}</div>
       )}
 
       {/* Debug Panel */}
       <div className={`debug-panel${debugOpen ? ' open' : ''}`}>
         <div className="debug-header" onClick={() => setDebugOpen(o => !o)}>
           <span className="debug-title">
-            {panel === 'code' ? '⬡ THREEJS CODE' : '⬡ SCENE JSON'}
-            {descriptor?.llm && <span className="llm-tag">grok</span>}
-            {descriptor?.fallback && <span className="fallback-tag">local</span>}
+            {panel === 'code' ? '⬡ THREE.JS CODE' : '⬡ SCENE JSON'}
+            {descriptor?.llm && <span className="llm-tag">groq</span>}
           </span>
           <div className="debug-header-right">
-            {debugOpen && descriptor && !descriptor.error && (
+            {debugOpen && descriptor && (
               <div className="tab-switch" onClick={e => e.stopPropagation()}>
                 <button className={`tab-btn${panel === 'json' ? ' on' : ''}`} onClick={() => setPanel('json')}>JSON</button>
                 <button className={`tab-btn${panel === 'code' ? ' on' : ''}`} onClick={() => setPanel('code')}>CODE</button>
@@ -161,16 +156,14 @@ export default function App() {
   description:   descriptor.description,
   code_hint:     descriptor.code_hint,
   search_used:   descriptor.search_used,
-  web_context:   descriptor.web_context,
-  llm_mode:      !!descriptor.llm,
-  ...(descriptor.error ? { error: descriptor.error, message: descriptor.message } : {}),
+  model:         descriptor.model,
 }, null, 2)}
                 </pre>
               ) : (
-                <pre className="scene-json code-view">{code || '// generating…'}</pre>
+                <pre className="scene-json code-view">{code || '// no code template for this renderer'}</pre>
               )
             ) : (
-              <p className="debug-empty">No prompt yet — try anything below.</p>
+              <p className="debug-empty">Type anything below — no limits.</p>
             )}
 
             {descriptor?.description && (
@@ -179,11 +172,14 @@ export default function App() {
 
             <div className="history-label">HISTORY ({history.length})</div>
             <div className="history-list">
-              {history.map((h) => (
+              {history.map(h => (
                 <div key={h.ts}
-                     className={`history-item${h.out.error ? ' err' : ''}${h.out.llm ? ' llm' : ''}`}
-                     onClick={() => { setDescriptor(h.out); setCode(h.code); if (h.code) setPanel('code'); if (h.out.web_context) setWebContext(h.out.web_context); setTimeout(() => inputRef.current?.focus(), 50) }}
-                     title="re-render">
+                  className={`history-item${h.out.error ? ' err' : ' llm'}`}
+                  onClick={() => {
+                    setDescriptor(h.out); setCode(h.code)
+                    if (h.code) setPanel('code')
+                    setTimeout(() => inputRef.current?.focus(), 50)
+                  }}>
                   <span className="h-text">{h.text}</span>
                   <span className="h-obj">{h.out.object || '—'}</span>
                 </div>
@@ -193,10 +189,9 @@ export default function App() {
         )}
       </div>
 
-      {/* Error toast */}
       {error && <div className="toast show">{error}</div>}
 
-      {/* Bottom dock */}
+      {/* Dock */}
       <div className="dock" onClick={() => inputRef.current?.focus()}>
         <form className="dock-inner" onSubmit={handleSubmit}>
           <span className="prompt">›</span>
@@ -206,7 +201,7 @@ export default function App() {
             value={value}
             onChange={e => setValue(e.target.value)}
             onBlur={() => setTimeout(() => inputRef.current?.focus(), 100)}
-            placeholder={loading ? 'Grok is thinking…' : `try "${EXAMPLES[exampleIdx]}"`}
+            placeholder={loading ? 'Groq is thinking…' : `try "${EXAMPLES[exIdx]}"`}
             disabled={loading}
             autoComplete="off" autoCorrect="off" spellCheck="false"
             aria-label="AGIS prompt input"
