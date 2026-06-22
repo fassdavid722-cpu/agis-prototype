@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import Scene from './Scene.jsx'
 import { route } from './router.js'
 import { getCode } from './codeGen.js'
-import { grokRoute } from './grokRouter.js'
+import { groqRoute as grokRoute } from './grokRouter.js'
 
 const EXAMPLES = [
   'show me a human face',
@@ -103,7 +103,7 @@ export default function App() {
 
       {/* Grok badge */}
       <div className="grok-badge">
-        ⚡ powered by <b>Grok</b> + web search
+        ⚡ powered by <b>Groq LLaMA 3.3</b> + web search
       </div>
 
       {/* Center hint */}
