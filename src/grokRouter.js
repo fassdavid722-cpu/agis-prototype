@@ -1,7 +1,7 @@
-// grokRouter.js — AGIS LLM Router via xAI Grok + Web Search
+// groqRouter.js — AGIS LLM Router via xAI Grok + Web Search
 // Calls the backend /api/route endpoint which holds the API key securely
 
-export async function grokRoute(prompt) {
+export async function groqRoute(prompt) {
   try {
     const res = await fetch('/api/route', {
       method: 'POST',
