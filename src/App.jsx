@@ -1,4 +1,4 @@
-// App.jsx — AGIS v3.0 — Interactive Visual Intelligence Workspace
+// App.jsx — AGIS v4.0 — Interactive Visual Intelligence Workspace
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import Scene from './Scene.jsx'
 import ContextMenu from './ContextMenu.jsx'
@@ -29,51 +29,49 @@ function buildObjects(descriptor) {
   if (!descriptor || !descriptor.object) return []
   const name = descriptor.object
   const n = name.toLowerCase()
-  const color = descriptor.color || '#6ea8ff'
+  const color = descriptor.color || '#a78bfa'
 
-  // For compound objects (car, solar system, etc.) spawn multiple parts
-  if (/car|vehicle|truck|bus/.test(n)) {
-    return [
-      { id: `obj_body_${Date.now()}`,   name: 'car body',   color: color,     position: [0, 0, 0],    renderer: 'box', description: 'The main chassis and body of the vehicle', spin: false },
-      { id: `obj_engine_${Date.now()}`, name: 'engine',     color: '#888888', position: [-0.6, 0.2, 0], renderer: 'cylinder', description: 'Internal combustion engine powering the vehicle', spin: false },
-      { id: `obj_wheel1_${Date.now()}`, name: 'front wheel',color: '#333333', position: [0.9, -0.5, 0.6], renderer: 'torus', description: 'Front right wheel and tire assembly', spin: true },
-      { id: `obj_wheel2_${Date.now()}`, name: 'rear wheel', color: '#333333', position: [-0.9, -0.5, 0.6], renderer: 'torus', description: 'Rear right wheel and tire assembly', spin: true },
-    ]
+  if (/\bcar\b|vehicle|truck|sedan|suv/.test(n)) {
+    return [{ id:`obj_car_${Date.now()}`, name:'car', color, position:[0,0.2,0], description:'A motor vehicle with four wheels' }]
   }
   if (/solar.?system/.test(n)) {
-    return [
-      { id: `obj_sun_${Date.now()}`,     name: 'Sun',     color: '#ffcc00', position: [0, 0, 0],    renderer: 'sphere', description: 'The star at the center of our solar system', spin: false, breathe: true },
-      { id: `obj_earth_${Date.now()}`,   name: 'Earth',   color: '#4a9eff', position: [3.5, 0, 0],  renderer: 'sphere', description: 'Our home planet, third from the Sun', spin: true },
-      { id: `obj_mars_${Date.now()}`,    name: 'Mars',    color: '#cc5533', position: [5.5, 0, 0],  renderer: 'sphere', description: 'The red planet, fourth from the Sun', spin: true },
-      { id: `obj_jupiter_${Date.now()}`, name: 'Jupiter', color: '#d4a96a', position: [-4.5, 0, 0], renderer: 'sphere', description: 'Largest planet in the solar system', spin: true },
-    ]
+    return [{ id:`obj_ss_${Date.now()}`, name:'solar system', color:'#ffcc00', position:[0,0,0], description:'Our solar system with orbiting planets' }]
   }
   if (/dna|helix/.test(n)) {
-    return [
-      { id: `obj_helix_${Date.now()}`,   name: 'DNA double helix', color: color, position: [0, 0, 0], renderer: 'custom', description: 'Double-stranded DNA molecule carrying genetic information', spin: true },
-      { id: `obj_base_${Date.now()}`,    name: 'base pairs',       color: '#ff6b6b', position: [0, 0, 0], renderer: 'custom', description: 'Nucleotide base pairs: adenine, thymine, guanine, cytosine', spin: false },
-    ]
+    return [{ id:`obj_dna_${Date.now()}`, name:'dna helix', color, position:[0,0,0], description:'DNA double helix carrying genetic information' }]
   }
   if (/brain|neural|neuron/.test(n)) {
-    return [
-      { id: `obj_cortex_${Date.now()}`,  name: 'cerebral cortex', color: color, position: [0, 0.3, 0], renderer: 'custom', description: 'Outer layer responsible for thought, memory and language', spin: false, breathe: true },
-      { id: `obj_neuron_${Date.now()}`,  name: 'neuron cluster',  color: '#a78bfa', position: [0, -0.5, 0], renderer: 'custom', description: 'Network of interconnected nerve cells', spin: true },
-    ]
+    return [{ id:`obj_brain_${Date.now()}`, name:'brain', color:'#e87ca0', position:[0,0,0], description:'The human brain — seat of consciousness' }]
   }
-  // Default: single object
-  return [
-    {
-      id: `obj_${Date.now()}`,
-      name,
-      color,
-      position: [0, 0, 0],
-      renderer: descriptor.renderer,
-      description: descriptor.description,
-      spin: descriptor.intent === 'rotate' || descriptor.intent === 'animate',
-      breathe: /human|face|organic|heart|brain/.test(n),
-      sceneDescriptor: descriptor,
-    }
-  ]
+  if (/black.?hole/.test(n)) {
+    return [{ id:`obj_bh_${Date.now()}`, name:'black hole', color:'#ff6600', position:[0,0,0], description:'A region of spacetime where gravity is so strong nothing can escape' }]
+  }
+  if (/human|person|man|woman|figure/.test(n)) {
+    return [{ id:`obj_human_${Date.now()}`, name:'human', color:'#f0c090', position:[0,0,0], description:'A human figure' }]
+  }
+  if (/robot|android|cyborg|mech/.test(n)) {
+    return [{ id:`obj_robot_${Date.now()}`, name:'robot', color:'#4488cc', position:[0,0,0], description:'A humanoid robot' }]
+  }
+  if (/dragon/.test(n)) {
+    return [{ id:`obj_dragon_${Date.now()}`, name:'dragon', color, position:[0,0,0], description:'A fearsome winged dragon' }]
+  }
+  if (/tree|forest|plant/.test(n)) {
+    return [{ id:`obj_tree_${Date.now()}`, name:'tree', color:'#2d8c2d', position:[0,0,0], description:'A tall tree with layered canopy' }]
+  }
+  if (/planet|earth|mars|saturn|jupiter|moon/.test(n)) {
+    return [{ id:`obj_planet_${Date.now()}`, name, color, position:[0,0,0], description:`The planet ${name}` }]
+  }
+  if (/sword|blade|katana/.test(n)) {
+    return [{ id:`obj_sword_${Date.now()}`, name:'sword', color:'#aaddff', position:[0,0,0], description:'A sharp sword with decorated handle' }]
+  }
+  if (/atom|molecule|electron/.test(n)) {
+    return [{ id:`obj_atom_${Date.now()}`, name:'atom', color, position:[0,0,0], description:'An atom with orbiting electrons' }]
+  }
+  if (/building|skyscraper|tower|eiffel/.test(n)) {
+    return [{ id:`obj_bld_${Date.now()}`, name:'building', color, position:[0,0,0], description:'A tall urban building' }]
+  }
+  // Default
+  return [{ id:`obj_${Date.now()}`, name, color, position:[0,0,0], description: descriptor.description || name, sceneDescriptor: descriptor }]
 }
 
 // ── Main App ─────────────────────────────────────────────────────────────────
@@ -230,7 +228,7 @@ export default function App() {
       <div className="statusbar">
         <div className="brand">
           <span className="logo">AGIS</span>
-          <span className="ver">v3.0</span>
+          <span className="ver">v4.0</span>
         </div>
         <div className="status-center">
           {hasScene && (
