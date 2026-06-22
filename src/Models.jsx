@@ -525,7 +525,7 @@ export function PlanetModel({ color = '#2277ee', name='earth', selected, onClick
           <meshStandardMaterial color={color} roughness={0.65} metalness={0.1} emissive={selected?color:'#000'} emissiveIntensity={selected?0.2:0} />
         </mesh>
         {/* Land masses (decorative) */}
-        {[[0.3,0.4,0.9],[−0.4,0.2,1.0],[0.7,−0.2,0.7]].map((p,i)=>(
+        {[[0.3,0.4,0.9],[-0.4,0.2,1.0],[0.7,-0.2,0.7]].map((p,i)=>(
           <mesh key={i} position={p}>
             <sphereGeometry args={[0.28+i*0.06, 12, 12]} />
             <meshStandardMaterial color="#44aa44" roughness={0.9} />
